@@ -1,0 +1,217 @@
+IMPORTANT: u-boot and the latest kernel version
+***********************************************************************
+Later kernel releases use a different machine ID than the 2.6.27.8
+kernel release and u-boot-2009.03 or u-boot-1.3.4.
+
+To work around this issue, the latest kernel code includes a patch
+that supports the original LPC3XXX machine ID used in 2.6.27.8 and
+the PHY3250 machine ID used in the later kernel revisions. This patch
+is not included in mainline code.
+
+The current machine ID use is below:
+u-boot-1.3.4    --> uses machine ID LPC3XXX
+u-boot-2009.03  --> uses machine ID PHY3250
+Kernel 2.6.27.8 --> uses machine ID LPC3XXX and PHY3250
+Kernel 2.6.33   --> uses machine ID PHY3250
+
+If for some reason the kernel loads, but fails to start, then enable
+the CONFIG_DEBUG_LL option in the kernel and try to boot it again. If
+the failure to boot is related to the machine ID, then you may need to
+change the machine ID in the kernel or u-boot source code.
+
+Note that once you build your kernel with the new PHY3250 machine ID,
+you must use a new build of u-boot too. Older versions of u-boot that
+use the old LPC3XXX machine ID will not work with the kernel that uses
+the PHY3250 machine ID.
+
+PHY3250 board deployment instructions
+***********************************************************************
+These are basic instructions on deploying Linux to your PHY3250 board
+using TFTP and NFS. These instructions assume you have some experience
+with setting up your TFTP and NFS servers.
+
+More detailed instructions and a complete board Linux startup document
+can be obtained from Phytec's website.
+
+Your PHY3250 board should have come pre-installed with the S1L boot
+loader. S1L handles board initialization and second level application
+boot (in this case u-boot).
+
+NOTE: If you want to boot u-boot from NOR FLASH, you will need a
+soecial version of the kickstart loader that runs in NOR FLASH. See
+the section below titled "u-boot from NOR" for more information.
+
+For steps and information regarding S1L and setup of the board's USB to
+UART adapter, see the User's manual for the PHY3250 board included with
+the board or available from Phytec's website. You can also get the
+bootloader document from the LPC32X0 CDL located on NXP's website.
+
+Initial board setup and starting S1L
+************************************************************************
+Plus a serial cable between the PHY3250 board's bottom RS232 conenctor
+and a PC. Open a terminal program (such as Teraterm) for the COM port
+at 115.2K-8-N-1.
+
+Reset the board and the "Phytec LPC3250 board" banner should appear with
+a prompt. If the board attempts to boot something, press any ket to stop
+the boot and get to the prompt.
+
+If you are planning on loading images over the network, connect an
+ethernet cable between the board and a switch.
+
+u-boot installation and setup
+************************************************************************
+Once you have your u-boot.bin image, you can use the following sequence
+to copy u-boot to the board and setup S1L to automatically run it on
+powerup or reset.
+
+Phytec LPC3250 board
+Build date: Sep 2 2009 16:51:31
+
+phy3250>load term raw 0x83f80000
+Starting terminal download, send break to stop
+
+Using the "send binary" capability of the terminal program, send the
+u-boot.bin to the board as a binary image. After the file has completely
+transferred, send a break sequence via the terminal program to get back
+to the phy3250> prompt. (In Teraterm, this can be done with ALT-b).
+
+Type nsave at the prompt to save the image in NAND FLASH.
+phy3250>nsave
+
+Set S1L to boot the image on powerup.
+phy3250>aboot flash raw 0x83f80000
+
+Finally, set the S1L boot delay to 2 seconds.
+phy3250> prompt phy3250> 2
+
+Press reset to reboot the board. After a few seconds, u-boot should
+start.
+
+Setting up u-boot to boot the kernel using TFTP using DHCP
+************************************************************************
+At the u-boot prompt, change the server IP address to your host
+machine's IP address and save the new u-boot environment settings. The
+following sequence should do it:
+
+setenv serverip 192.168.1.51 (Use your host machine address here)
+setenv bootcmd 'dhcp; bootm'
+saveenv
+
+Make sure your host machines's TFTP server is setup and that the kernel
+image (uImage) is in the TFTP file area. Reset the board and the kernel
+should boot.
+
+The board can be setup to boot using static IP by also changing the
+bootcmd environment variable to 'tftpboot; bootm' and also setting the
+ipaddr and netmask environment variables to the desired values.
+
+Setting up the kernel's root filesystem
+************************************************************************
+In the previous step, the kernel started but then probably gave a
+'kernel panic' error and then appeared to stop. This is most likely
+because it couldn't find a root filesystem. The root filesystem can be
+located on a network NFS share, an SD card partition, as a compressed
+image uncompressed by Linux into memory at run-time, or in the NAND
+FLASH. This example only shows how to setup the kernel to mount the
+root filesystem using NFS. (See the Phytec Linux manual for more booting
+options).
+
+Reset the board and boot to u-boot. Once the u-boot message appears,
+press any key to get to the u-boot prompt. Type 'printenv' to dump the
+current environment variables and examine the bootargs variable. This
+variable is used by the kernel to define the console device (serial
+port), location of the root filesystem, init file location, network
+setup, etc.
+
+Change the bootargs variable as follows to use NFS for the root
+filesystem on your machine. Make sure your NFS server is setup to serve
+the files on your host machine from the correct location.
+
+setenv ethaddr '00:12:23:34:45:56' (do this only if needed!!)
+setenv bootargs 'console=ttyS0,115200n81 root=/dev/nfs rw nfsroot=192.168.1.51:/home/<user>/ltib/rootfs ip=dhcp ethaddr=$ethaddr'
+saveenv
+
+u-boot from NOR
+************************************************************************
+The Phytec 3250 board can boot u-boot from NOR FLASH into SDRAM. For
+this setup, u-boot runs in IRAM and is only stored in NOR FLASH. A
+special version of the kickstart loader is required to add this support.
+Kernel images, u-boot environment variables, and other data can also
+be stored and booted from NOR FLASH.
+
+For NOR FLASH, the organization of data for the kickstart loader and
+u-boot is as follows:
+	NOR FLASH offset 0x000000 -> Kickstart loader (64K)
+	NOR FLASH offset 0x010000 -> u-boot environment variables (64K)
+	NOR FLASH offset 0x020000 -> u-boot image (256K)
+	NOR FLASH offset 0x060000 -> Kernel, ramdisk, other images
+
+The kickstart loader is not provided as part of this package. To build
+and deply the kickstart loader, you need to download the LPC32XX
+Common Driver Library (CDL) from NXP's website and follow the instructions
+for building and deploying the kickstart loader to the board. Burner
+software (for placing the kickstart loader and initial u-boot binary)
+into NOR FLASH are also included as part of the CDL. The basic instructions
+are given below:
+
+Steps to Build NOR Flash Burners & Kickstart:
+----------------------------------------------
+(1) Get Common Driver Library (CDL) package for LPC3250.
+(2) Compile Kickstart NOR flash burner.
+	cd <CDL Path>/csps/phy3250/startup/example/Burners/nor/kickstart
+	make distclean
+	make
+(3) Compile U-boot NOR flash burner.
+	cd <CDL Path>/csps/phy3250/startup/example/Burners/nor/s1l
+	make distclean
+	make
+(4) Compile Kickstart code which relocates u-boot from NOR to SDRAM memory.
+	cd <CDL Path>/csps/phy3250/startup/example/kickstart/kickstart_nor
+	make distclean
+	make
+
+Steps to program Kickstart into NOR:
+-----------------------------------
+(1) Run "LPC3250_Loader.exe" from CDL package
+(2) Select correct serial communication port.
+(3) Burn Kickstart into NOR flash using kickstart burner.
+	In "LPC3250_Loader.exe" GUI, give "burner_kickstart_nor_<TOOL>.bin as primary Boot file.
+	In "LPC3250_Loader.exe" GUI, give "kickstart_nor_<TOOL>.bin as secondary executable file.
+(4) Click "Load bins / Start primary" button to transfer files into board.
+(5) Prese "Reset" Key of board to start the transfer.
+The Kickstart code will be programmed into first 3 sectors (0,1,2) of the NOR flash.
+
+Steps to program Uboot into NOR:
+-------------------------------
+(1) Run "LPC3250_Loader.exe" from CDL package
+(2) Select correct serial communication port.
+(3) Burn Uboot into NOR flash using S1L burner.
+	In "LPC3250_Loader.exe" GUI, give "burner_s1l_nor_<TOOL>.bin as primary Boot file.
+	In "LPC3250_Loader.exe" GUI, give "u-boot.bin as secondary executable file.
+(4) Click "Load bins / Start primary" button to transfer files into board.
+(5) Prese "Reset" Key of board to start transfer.
+The u-boot code will be programmed into sectors (4,5,6,7) of the NOR flash.
+
+One u-boot is running using this method, u-boot can be used to update itself
+in NOR FLASH with the following sequence:
+	- Load updated u-boot image into memory at address 0x80100000
+		tftp or loadb are possible methods
+	- Erase sectors.
+		erase 0xE0010000 0xE005FFFF
+	- Flash uboot into NOR flash.
+		cp.b 0x80100000 0xE0010000 <size in bytes>
+
+Saving u-boot environment variables in NOR FLASH
+-------------------------------
+u-boot on the Phytec board will use NAND FLASH for environment variables
+by default. If NOR FLASH is desired for this storage, the phy3250.h file
+in the u-boot source tree needs to be changed. Locate the comment in the
+file about enabling NOR FLASH environment save support and following the
+instructions there. You will need to rebuild u-boot after the change.
+
+Additional information
+************************************************************************
+Additional information abou the LPC32x0 version of Linux, including full
+deployment examples, can be found at www.lpclinux.com.
+

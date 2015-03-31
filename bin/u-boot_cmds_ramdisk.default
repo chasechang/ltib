@@ -1,0 +1,23 @@
+=> 
+=> echo "RAMDISK deployment"
+=> setenv serverip     $serverip
+=> setenv ipaddr       $ipaddr
+=> setenv netmask      $netmask
+=> setenv gatewayip    $gatewayip
+=> setenv netdev       $netdev
+=> setenv consoledev   $consoledev
+=> setenv baud         $baud
+=> setenv bootargs     rw console=$consoledev,$baud simicsfs=0xf80fff00 ramdisk_size=200000
+=> setenv loadkernaddr $loadkernaddr
+=> setenv loaddtbaddr  $loaddtbaddr
+=> setenv loadramaddr  $loadramaddr
+=> sleep 5
+=> tftp  $loadkernaddr $tftp_sdir/$kernt
+=> tftp  $loadramaddr  $tftp_sdir/$fst
+=> if printenv dtut
+=> then
+=>     tftp  $loaddtbaddr $tftp_sdir/$dtut
+=>     bootm $loadkernaddr $loadramaddr $loaddtbaddr
+=> else
+=>     bootm $loadkernaddr $loadramaddr
+=> fi

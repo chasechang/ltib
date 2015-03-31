@@ -1,0 +1,6 @@
+RedBoot> 
+RedBoot> ip_address -l $ipaddr
+RedBoot> ip_address -h $serverip
+RedBoot> load -v -r -b $loadkernaddr $tftp_sdir/$kernt
+RedBoot> load -v -r -b $loadramaddr  $tftp_sdir/$fst
+RedBoot> exec -r $loadramaddr -c \"root=/dev/ram console=$consoledev,$baud" $loadkernaddr

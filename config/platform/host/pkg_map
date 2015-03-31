@@ -1,0 +1,2 @@
+PKG_MTD_UTILS = mtd-utils-20060302
+PKG_WGET = wget-ssl

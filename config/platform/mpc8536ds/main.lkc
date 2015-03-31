@@ -1,0 +1,151 @@
+# constants (forced values)
+config CONFIG_TITLE
+    string
+    default "LTIB: Freescale MPC8536DS PowerPC development board"
+
+config PLATFORM_COMMENT
+    string
+    default "Freescale MPC8536DS PowerPC development board"
+
+config VENDOR
+    string
+    default "Freescale"
+
+config PLATFORM
+    string
+    default mpc8536ds
+
+config GNUTARCH
+    string
+    default powerpc
+
+config LINTARCH
+    string
+    default ppc
+
+config CFGHOST
+    string
+    default powerpc-linux
+
+# capabilities if different from defaults.lkc
+
+source ../../userspace/endian.lkc
+source ../../userspace/libc_type.lkc
+source ../../userspace/toolchain.lkc
+
+config SYSCFG_DTC_PATH
+    string
+    default "$PLATFORM_PATH/dts/"
+
+config SYSCFG_DTC_NAME
+    string
+    default "mpc8536ds mpc8536ds_1588" 
+
+comment "Bootloader"
+
+config BOOTLOADER1
+    bool "Build a boot loader"
+    default y
+    help
+        Selecting this will build the u-boot boot loadwer
+
+config PKG_U_BOOT
+    string
+    default "u-boot-2009.03-rc1-mpc8536ds" if BOOTLOADER1
+
+choice
+    depends BOOTLOADER1
+    prompt "u-boot target board type"
+    default PKG_U_BOOT_GENERAL
+    help
+        This menu let you choose the exact u-boot target to build
+
+    config PKG_U_BOOT_GENERAL
+        bool "General"
+    config PKG_U_BOOT_1
+        bool "Booting from SD card"
+    config PKG_U_BOOT_2
+        bool "Booting from SPI Flash"
+endchoice
+
+config PKG_U_BOOT_CONFIG_TYPE
+    string
+    default "MPC8536DS_config" if PKG_U_BOOT_GENERAL
+    default "MPC8536DS_SDCARD_config" if PKG_U_BOOT_1
+    default "MPC8536DS_SPIFLASH_config" if PKG_U_BOOT_2
+config PKG_U_BOOT_BUILD_ARGS
+    string
+    default "OPTFLAGS=-Os" if !PKG_U_BOOT_CW
+
+comment "Choose your Kernel"
+choice
+    prompt "kernel"
+    default KERNEL_NONE
+    help
+        This menu will let you choose the kernel to use with your board.
+        If you don't want to build a kernel, unselect this option.
+
+    config KERNEL1
+        bool "Linux 2.6.28 + MPC8536DS patch"
+    config KERNEL_DIR_BUILD
+        bool "Local Linux directory build"
+        help
+            Build using a local copy of the kernel sources
+    config KERNEL_NONE
+        bool "Dont build the Linux kernel"
+        help
+            Select this if you dont want to build the kernel or provide your own
+endchoice
+
+config PKG_KERNEL
+    string
+    default "kernel-2.6.28-mpc8536ds"  if KERNEL1
+    default "kernel26-dir-build" if KERNEL_DIR_BUILD
+
+source ../../userspace/kernel_dir_build.lkc
+
+choice
+    prompt "kernel preconfig"
+    default KERNEL_DEF
+    config KERNEL_DEF
+        bool "mpc8536ds_def.config"
+    config KERNEL_OFFLOADING
+        bool "mpc8536ds_ipsec_sec_offloading.config"
+        help
+            Enable IPsec with SEC offloading
+    config KERNEL_SOFTWARE
+        bool "mpc8536ds_ipsec_software.config"
+        help
+            Enable IPsec with software only
+endchoice
+
+config PKG_KERNEL_PRECONFIG
+    string 
+    default "mpc8536ds_def.config" if KERNEL_DEF
+    default "mpc8536ds_ipsec_sec_offloading.config" if KERNEL_OFFLOADING
+    default "mpc8536ds_ipsec_software.config" if KERNEL_SOFTWARE
+
+config PKG_KERNEL_WANT_HEADERS
+    depends ! KERNEL_NONE
+    bool "Include kernel headers"
+    help
+        Selecting this will copy kernel headers to rootfs/usr/src/linux/include
+
+config PKG_KERNEL_WANT_CF
+    depends ! KERNEL_NONE
+    bool "Configure the kernel"
+    default n
+
+config PKG_KERNEL_LEAVESRC
+    depends ! KERNEL_NONE
+    bool "Leave the sources after building"
+    default n
+    help
+        This is a one shot option that can be used to build the kernel and
+        leave the build source tree in rpm/BUILD in place
+    
+source ../../userspace/distro.lkc
+source ../../userspace/packages.lkc
+source ../../userspace/sysconfig.lkc
+source ../../userspace/deployment.lkc
+source ../../userspace/defaults.lkc

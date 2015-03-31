@@ -1,0 +1,122 @@
+# Template = kernel-common.tmpl
+
+%define pfx /opt/freescale/rootfs/%{_target_cpu}
+%define dversion 2.6.23
+%define pkg_name linux
+
+Summary         : Linux kernel for MPC837xE MDS
+Name            : kernel
+Version         : 2.6.23
+Release         : 1 
+License         : GPL
+Vendor          : kernel.org
+Packager        : Olivia Yin
+Group           : System Environment/Kernel
+Source          : %{pkg_name}-%{dversion}.tar.bz2
+Patch0          : linux-2.6.23-mpc837xemds-generic.patch
+Patch1          : linux-fsl-2.6.23-mpc837xemds-sata.patch
+Patch2          : linux-2.6.23-mpc837xemds-serdes.patch
+Patch3          : linux-fsl-2.6.23-mpc837xemds-esdhc.patch
+Patch4          : linux-fsl-2.6.23-mpc837xemds-usb-host.patch
+Patch5          : linux-fsl-2.6.23-MISC_FIX_FOR_GIANFAR_DRIVER.patch
+Patch6          : linux-fsl-2.6.23-GIANFAR_SKB_BUFFER_RECYCLING_SUPPORT.patch
+Patch7          : linux-fsl-2.6.23-mpc837xemds-rtc.patch
+Patch8          : linux-fsl-2.6.23-mpc837xemds-mtd.patch
+Patch9          : linux-fsl-2.6.23-mpc837xemds-elbc.patch
+Patch10         : linux-fsl-2.6.23-mpc837xemds-usb-otg.patch
+Patch11         : linux-fsl-2.6.23-mpc837xemds-PCIE-MSI.patch
+Patch12         : linux-fsl-2.6.23-mpc837xemds-dts.patch
+Patch13         : linux-fsl-2.6.23-mpc837xemds-config.patch
+Patch14         : linux-fsl-2.6.23-GIANFAR_PARAMETER_ADJUST.patch
+Patch15         : linux-fsl-2.6.23-mpc837xemds-SATA-PM.patch
+Patch16         : linux-fsl-2.6.23-mpc837xemds-Power-Management.patch
+Patch17         : linux-fsl-2.6.23-OpenSwan.patch
+Patch18         : linux-fsl-2.6.23-OpenSwan_kernel.patch
+Patch19         : linux-fsl-2.6.23-OCF_Framework.patch
+Patch20         : linux-fsl-2.6.23-mpc837xemds-spin-lock-bugfix.patch
+Patch21         : linux-fsl-2.6.23-yaffs.patch
+Patch22         : linux-fsl-2.6.23-mpc837xemds-Marvell88E1145-SGMII.patch
+Patch23         : linux-fsl-2.6.23-mpc8xxx-CodeWarrior.patch
+Patch24         : linux-fsl-2.6.23-CT.patch
+Patch25         : 0008-fsl_usb2_udc-fix-potential-QH-corruption.patch
+Patch26         : 0001-modify-the-esdhc-from-ALU.patch
+Patch27         : 0009-change-the-tiemout-to-the-maximal-value-for-esdhc.patch
+Patch28         : 0010-add-the-LFC-support-for-Rev2.1.patch
+Patch29         : 0011-add-the-1588-support-for-mpc837xemds.patch
+Patch30         : 0012-correct-the-PPS-for-ieee-1588.patch
+Patch31         : 0013-pci-agent-demo-support-for-mpc837x-mds.patch
+Patch32         : 0014-SGMII-support-for-marvell-1145-phy.patch
+Patch33         : 0015-dts-support-for-IEEE-1588-and-PCI-Agent.patch
+Patch34         : 0016-enhance-PCIe-driver-to-support-multi-function-device.patch
+Patch35         : 0001-Add-Freescale-SEC23DRV-package.patch
+Patch36         : 0018-enable-the-talitos-for-mpc837x.patch
+Patch37         : 0019-improve-NAS-handle-fragmented-frames-at-the-transmit.patch
+Patch38         : 0020-Generic-DMA-changes-for-chan-level-cap.patch
+Patch39         : 0021-Async-layer-changes-for-FSl-drivers.patch
+Patch40         : 0022-MPC83XX-DMA-driver.patch
+Patch41         : 0023-DMA-Driver-Changes-for-837x.patch
+Patch42         : 0024-Add-extensible-crypto-driver-for-SEC-2.x-3.x.patch
+Patch43         : 0025-T23X-changes-for-mpc83xx.patch
+Patch44         : 0026-DMAXOR-APIs.patch
+Patch45         : 0027-add-the-pciex2-with-esdhc-dts.patch
+Patch46         : 0029-remove-the-usb-clock-code.patch
+Patch47         : 0030-dts-syntax-update.patch
+BuildRoot       : %{_tmppath}/%{name}
+Prefix          : %{pfx}
+
+%Description
+%{summary}
+
+From kernel.org
+All patches from Freescale
+
+%Prep
+%setup -n %{pkg_name}-%{dversion}
+%patch0 -p1
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
+%patch6 -p1
+%patch7 -p1
+%patch8 -p1
+%patch9 -p1
+%patch10 -p1
+%patch11 -p1
+%patch12 -p1
+%patch13 -p1
+%patch14 -p1
+%patch15 -p1
+%patch16 -p1
+%patch17 -p1
+%patch18 -p1
+%patch19 -p1
+%patch20 -p1
+%patch21 -p1
+%patch22 -p1
+%patch23 -p1
+%patch24 -p1
+%patch25 -p1
+%patch26 -p1
+%patch27 -p1
+%patch28 -p1
+%patch29 -p1
+%patch30 -p1
+%patch31 -p1
+%patch32 -p1
+%patch33 -p1
+%patch34 -p1
+%patch35 -p1
+%patch36 -p1
+%patch37 -p1
+%patch38 -p1
+%patch39 -p1
+%patch40 -p1
+%patch41 -p1
+%patch42 -p1
+%patch43 -p1
+%patch44 -p1
+%patch45 -p1
+%patch46 -p1
+%patch47 -p1

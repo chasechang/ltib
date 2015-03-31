@@ -1,0 +1,48 @@
+# Template = kernel-common.tmpl
+
+%define pfx /opt/nxp/rootfs/%{_target_cpu}
+%define dversion 2.6.34
+%define pkg_name linux
+
+Summary         : Linux kernel (core of the Linux operating system)
+Name            : kernel
+Version         : 2.6.34
+Release         : 1
+License         : GPL
+Vendor          : Kernel.org + NXP lpc32xx patches
+Packager        : Kevin Wells
+Group           : System Environment/Kernel
+Source          : %{pkg_name}-%{dversion}.tar.bz2
+Patch1		: kernel-arm-2.6.34-lpc32xx.patch
+Patch2		: kernel-arm-2.6.34-lpc32xx_update1.patch
+Patch3		: kernel-arm-2.6.34-lpc32xx_update2.patch
+Patch4          : kernel-arm-2.6.34-lpc32xx_fdi3250.patch
+Patch5          : kernel-arm-2.6.34-lpc32xx_fbfixes.patch
+Patch6          : kernel-arm-2.6.34-lpc32xx_v105_fixed.patch
+Patch7          : kernel-arm-2.6.34-lpc32xx_v106.patch
+Patch8          : kernel-arm-2.6.34-lpc32xx_v106a.patch
+Patch9          : kernel-arm-2.6.34-lpc32xx_v107.patch
+Patch10         : kernel-arm-2.6.34-lpc32xx_v108.patch
+Patch11         : kernel-arm-2.6.34-lpc32xx_v109.patch
+BuildRoot       : %{_tmppath}/%{name}
+Prefix          : %{pfx}
+
+%Description
+%{summary}
+
+Linux 2.6.34 kernel from kernel.org + NXP LPC32XX patches
+
+%Prep
+%setup -n %{pkg_name}-%{dversion}
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
+%patch6 -p1
+%patch7 -p1
+%patch8 -p1
+%patch9 -p1
+%patch10 -p1
+%patch11 -p1
+

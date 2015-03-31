@@ -1,0 +1,110 @@
+# constants (forced values)
+config CONFIG_TITLE
+    string
+    default "LTIB: Raspberry Pi"
+
+config CPU
+    string
+    default "BCM2835"
+
+config PLATFORM_COMMENT
+    string
+    default "Raspberry Pi with BCM2835 SoC"
+
+config VENDOR
+    string
+    default "Raspberry Pi Foundation"
+
+config PLATFORM
+    string
+    default "rpi"
+
+config GNUTARCH
+    string
+    default arm
+
+config LINTARCH
+    string
+    default arm
+
+config CFGHOST
+    string
+    default arm-linux
+
+# capabilities if different from defaults.lkc
+
+source ../../userspace/endian.lkc
+source ../../userspace/libc_type.lkc
+source ../../userspace/toolchain.lkc
+
+config BOOTLOADER_NONE
+   bool "Don't build a bootloader"
+   default y
+
+comment "Choose your Kernel"
+choice
+    prompt "kernel"
+    default RPI_KERNEL_3_2
+    help
+        This menu will let you choose the kernel to use with your board.
+        If you don't want to build a kernel, unselect this option.
+
+    config RPI_KERNEL_3_2
+        select PKG_RPI_BOOT
+        bool "Linux 3.2.x for Raspberry Pi"
+        help
+            This is the 3.2.X kernel for Raspberry Pi
+
+    config KERNEL_DIR_BUILD
+        bool "Local Linux directory build"
+        help
+            Build using a local copy of the kernel sources
+
+    config KERNEL_NONE
+        bool "Dont build the Linux kernel"
+        help
+            Select this if you dont want to build the kernel
+endchoice
+
+config PKG_KERNEL
+   string 
+   default "kernel-arm-rpi-3.2.27" if RPI_KERNEL_3_2
+
+source ../../userspace/kernel_dir_build.lkc
+
+config PKG_KERNEL_PRECONFIG
+    string "Kernel preconfig"
+    default "bcmrpi_defconfig" if RPI_KERNEL_3_2
+
+config PKG_KERNEL_WANT_HEADERS
+    depends ! KERNEL_NONE
+    bool "Include kernel headers"
+    help
+        Selecting this will copy kernel headers to rootfs/usr/src/linux/include
+
+config PKG_KERNEL_WANT_CF
+    depends ! KERNEL_NONE
+    bool "Configure the kernel"
+    default n
+ 
+config PKG_KERNEL_LEAVESRC
+    depends ! KERNEL_NONE
+    bool "Leave the kernel sources after building"
+    default y
+    help
+      This is a one shot option that can be used to build the kernel and
+      leave the build source tree in rpm/BUILD in place
+
+config SYSCFG_KTARG
+    string
+    default "zImage"
+
+config SYSCFG_BOOT_KERNEL
+    string
+    default "arch/arm/boot/zImage"
+
+source ../../userspace/distro.lkc
+source ../../userspace/packages.lkc
+source ../../userspace/sysconfig.lkc
+source ../../userspace/deployment.lkc
+source ../../userspace/defaults.lkc
