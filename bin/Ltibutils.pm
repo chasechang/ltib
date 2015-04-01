@@ -64,7 +64,7 @@ BEGIN {
 use strict 'vars';
 use vars qw(@ISA @EXPORT $have_request_common $have_useragent $have_md5
                          $proxy_tested $pp_list_str $app_checks $verbose
-                         $hl $cf);
+                         $hl $cf $ubuntu_version);
 @ISA = qw(Exporter);
 @EXPORT = qw( parse_dotconfig gm_yyyymmdd parse_config
              parse_spec get_file touch g2larch
@@ -77,6 +77,7 @@ use vars qw(@ISA @EXPORT $have_request_common $have_useragent $have_md5
 # import verbose, cf from the main package
 *verbose = \$main::verbose;
 *cf      = \$main::cf;
+*ubuntu_version = \$main::ubuntu_version;
 
 my $scmtags = {};
 
@@ -619,19 +620,39 @@ sub get_ver
     my ($pkg) = @_;
     local $_;
 
-    if( ! defined($app_checks->{$pkg}) ) {
-        $_ = `$pkg --version 2>/dev/null`;
-    } elsif(ref($app_checks->{$pkg}) eq 'CODE') {
-        $_ = $app_checks->{$pkg}();
-    } else {
-        $_ = `$app_checks->{$pkg}`;
-    }
-    if(! $_) {
-        return (-1, 'not installed or error');
-    }
-    my ($ver) = m,(\d+\.\d+(?:\.\d+)?),;
-    $ver ||= 0;
-    return ($ver, '');
+	if ( ! $ubuntu_version ) {
+        if( ! defined($app_checks->{$pkg}) ) {
+            $_ = `$pkg --version 2>/dev/null`;
+        } elsif(ref($app_checks->{$pkg}) eq 'CODE') {
+            $_ = $app_checks->{$pkg}();
+        } else {
+            $_ = `$app_checks->{$pkg}`;
+        }
+        if(! $_) {
+            return (-1, 'not installed or error');
+        }
+        my ($ver) = m,(\d+\.\d+(?:\.\d+)?),;
+        $ver ||= 0;
+        
+        return ($ver, '');
+	} else {
+		if ( defined($pkg) ) {
+			my $data=`apt-cache policy $pkg | grep Installed: `;
+			if ( $data ) {
+				my @data_list = split('\n',$data);
+				foreach my $data_item (@data_list) {
+					my @values = split(' ',$data_item);
+					if ( $values[1] ne "(none)" ) {
+						my @subvalues = split /[-+\s\/]+/, $values[1] ;
+						#print "$pkg -> Val = $data_item Version:$subvalues[0] \n";
+						return ($subvalues[0], '');
+					}
+				}
+				
+			}
+		}
+	}
+    return (-1, 'not installed or error');
 }
 
 sub mk_uboot_kernel

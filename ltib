@@ -43,8 +43,25 @@ use IO::File;
 
 chomp($hostname = `hostname`);
 $top  = $FindBin::Bin;
-$bdir = "/opt";
+$bdir = "$top/tools";
 $verbose = 0;
+$ubuntu_version = 0;
+
+# get the ubuntu version
+if (-e '/etc/lsb-release') { 
+	my $data = `lsb_release -d -s | cut -d ' ' -f 2`;
+	my @values = split('\.',$data);
+	my $ubuntu_bits = `uname -a | grep x86_64` ;
+	if ( $ubuntu_bits )
+	{	
+		$ubuntu_version = "$values[0]\.$values[1]-64-bits";
+	}
+	else
+	{
+		$ubuntu_version = "$values[0]\.$values[1]-32-bits";
+	}
+
+}
 
 # $cf (globals), these can be set/overridden in the resource file .ltibrc
 # This can be in the same directory as the script, or in the user's
@@ -202,9 +219,24 @@ $cf = {
     need_frb     => 0
 };
 
+# if the host_packages file is exist , re-build $cf->{pre_install_deps}
+if ( $ubuntu_version ) {
+	my $host_pkgs = "$cf->{top}/host-pkgs-ubuntu-$ubuntu_version";
+	
+	if ( -e $host_pkgs ) { 
+		$cf->{pre_install_deps} = "";
+		open FILE, "$host_pkgs" or die "Couldn't open file: $!";
+		while (<FILE>) {
+			$cf->{pre_install_deps} .= $_;
+		}
+		close FILE;
+	}
+}
+
+
 use strict 'vars';
 use vars qw($cf $config_deps $build_deps $install_deps $tspec
-            $pcf $ppcf $rev_install_deps $pcac $verbose);
+            $pcf $ppcf $rev_install_deps $pcac $verbose $ubuntu_version);
 
 # package config dependencies
 # re-build the key (lhs) if any of the dependents (rhs) in the list have changed
@@ -1505,6 +1537,11 @@ sub host_checks
     return 1 if -f $cf->{host_wait_warning} && (! $cf->{dltest} 
                                                   || $cf->{sn} || $cf->{batch});
 
+    # if the system is ubuntu , install the lack of packages
+	if ( $ubuntu_version ) {
+		ubuntu_install_deps_packages();
+	}
+    
     # check the basic build host package dependencies
     check_basic_deps() or die;
 
@@ -2253,6 +2290,28 @@ TXT
     warn $msg if $verbose;
     return wantarray ? () : undef;
 }
+}
+
+# ubuntu install packages
+sub ubuntu_install_deps_packages
+{
+    foreach my $dep ( split(/\n/, $cf->{pre_install_deps}) ) {
+        next if $dep =~ m,^\s*$,;
+        next if $dep =~ m,^\s*#,;
+        $dep =~ s,^\s*,,;
+        my ($pkg, $min) = split(/\s+/, $dep);
+        my ($ver, $info) = get_ver($pkg);
+        warn "pkg=$pkg, min=$min, got: $ver, $info\n" if $verbose;
+        if($ver eq -1) {
+			print "install $pkg \n" ;
+			#$_ = `sudo apt-get install $pkg`;
+			#system('apt-get', 'install', $pkg);
+			system_nb(<<TXT) == 0 or die;
+set -e
+$cf->{sudo} apt-get install -y $pkg 
+TXT
+        }
+    }
 }
 
 # check the most basic host services are available
