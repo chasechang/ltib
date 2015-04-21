@@ -64,7 +64,7 @@ BEGIN {
 use strict 'vars';
 use vars qw(@ISA @EXPORT $have_request_common $have_useragent $have_md5
                          $proxy_tested $pp_list_str $app_checks $verbose
-                         $hl $cf $ubuntu_version);
+                         $hl $cf);
 @ISA = qw(Exporter);
 @EXPORT = qw( parse_dotconfig gm_yyyymmdd parse_config
              parse_spec get_file touch g2larch
@@ -77,7 +77,6 @@ use vars qw(@ISA @EXPORT $have_request_common $have_useragent $have_md5
 # import verbose, cf from the main package
 *verbose = \$main::verbose;
 *cf      = \$main::cf;
-*ubuntu_version = \$main::ubuntu_version;
 
 my $scmtags = {};
 
@@ -620,7 +619,7 @@ sub get_ver
     my ($pkg) = @_;
     local $_;
 
-	if ( ! $ubuntu_version ) {
+	if ( ! $cf->{os_version} ) {
         if( ! defined($app_checks->{$pkg}) ) {
             $_ = `$pkg --version 2>/dev/null`;
         } elsif(ref($app_checks->{$pkg}) eq 'CODE') {

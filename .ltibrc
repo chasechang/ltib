@@ -112,3 +112,11 @@ $home/.ccache
 # package and you want to force others to install this update
 %host_wait_warning
 .host_wait_warning35
+
+# control whether host tools will install
+%bdir_local
+1
+
+# control which rpm tools will be used
+%use_host_tools
+1

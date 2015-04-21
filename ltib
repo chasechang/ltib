@@ -43,25 +43,8 @@ use IO::File;
 
 chomp($hostname = `hostname`);
 $top  = $FindBin::Bin;
-$bdir = "$top/tools";
+$bdir = "/opt/ltib" ;
 $verbose = 0;
-$ubuntu_version = 0;
-
-# get the ubuntu version
-if (-e '/etc/lsb-release') { 
-	my $data = `lsb_release -d -s | cut -d ' ' -f 2`;
-	my @values = split('\.',$data);
-	my $ubuntu_bits = `uname -a | grep x86_64` ;
-	if ( $ubuntu_bits )
-	{	
-		$ubuntu_version = "$values[0]\.$values[1]-64-bits";
-	}
-	else
-	{
-		$ubuntu_version = "$values[0]\.$values[1]-32-bits";
-	}
-
-}
 
 # $cf (globals), these can be set/overridden in the resource file .ltibrc
 # This can be in the same directory as the script, or in the user's
@@ -69,11 +52,14 @@ if (-e '/etc/lsb-release') {
 $cf = {
     # configuration options
     bldbase      => $top,
+    bdir_local   => 0,
+    os_version   => 0,
+    use_host_tools => 0,
     rpmipfx      => '/',
     rpmdb        => '/var/lib/rpm',
     rpmdir       => "$top/rpm",
     _rpmdir      => "$top/rpm/RPMS",
-    rpm          => "$bdir/ltib/usr/bin/rpm",
+    rpm          => "$bdir/usr/bin/rpm" ,
     rpmbuild     => "rpmbuild",
     sudo         => "sudo",
     dodrop       => 'yes',
@@ -85,9 +71,9 @@ $cf = {
     tmppath      => "/tmp/ltib",
     projtmp      => "$top/tmp",
     bin_path     => "$top/bin",
-    defpfx       => "$bdir/ltib",
-    lpp          => "$bdir/ltib/pkgs",
-    spoof_path   => "$bdir/ltib/usr/spoof",
+    defpfx       => "$bdir",
+    lpp          => "$bdir/pkgs",
+    spoof_path   => "$bdir/usr/spoof",
     pps          => "ppp gpp",
     gpp_url      => "",
     ppp_url      => "",
@@ -140,6 +126,7 @@ $cf = {
     release_info => "$top/RELEASE_INFO",
     conf         => "mconf",
     defdist      => "dist/lfs-5.1",
+    pkg_map      => "config/userspace/pkg_map",
     pfx          => "/",
     buildarch    => (uname())[4],
     hostconfig   => "$top/config/platform/host/ltib.preconfig",
@@ -219,9 +206,25 @@ $cf = {
     need_frb     => 0
 };
 
+# get the ubuntu version
+if (-e '/etc/lsb-release') { 
+	my $data = `lsb_release -d -s | cut -d ' ' -f 2`;
+	my @values = split('\.',$data);
+	my $ubuntu_bits = `uname -a | grep x86_64` ;
+	if ( $ubuntu_bits )
+	{	
+		$cf->{os_version} = "$values[0]\.$values[1]-64-bits";
+	}
+	else
+	{
+		$cf->{os_version} = "$values[0]\.$values[1]-32-bits";
+	}
+
+}
+
 # if the host_packages file is exist , re-build $cf->{pre_install_deps}
-if ( $ubuntu_version ) {
-	my $host_pkgs = "$cf->{top}/host-pkgs-ubuntu-$ubuntu_version";
+if ( $cf->{os_version} ) {
+	my $host_pkgs = "$cf->{top}/config/platform/host/host-pkgs-ubuntu-$cf->{os_version}";
 	
 	if ( -e $host_pkgs ) { 
 		$cf->{pre_install_deps} = "";
@@ -236,7 +239,7 @@ if ( $ubuntu_version ) {
 
 use strict 'vars';
 use vars qw($cf $config_deps $build_deps $install_deps $tspec
-            $pcf $ppcf $rev_install_deps $pcac $verbose $ubuntu_version);
+            $pcf $ppcf $rev_install_deps $pcac $verbose);
 
 # package config dependencies
 # re-build the key (lhs) if any of the dependents (rhs) in the list have changed
@@ -548,11 +551,25 @@ if( defined($cf->{rootn}) ) {
     $cf->{rootn}   = 0;
 }
 
-# setup basic path to parts we will install
-$ENV{PATH} =  "$cf->{defpfx}/usr/bin:$cf->{path_std}";
-
 # load the system level configuration (download url etc)
 load_system_config($cf);
+
+# if $cf->{bdir_local} be setted , adjust the setting 
+if ( $cf->{bdir_local} ) {
+	$cf->{rpm}        = "$cf->{top}/tools/usr/bin/rpm";
+	$cf->{defpfx}     = "$cf->{top}/tools";
+    $cf->{lpp}        = "$cf->{top}/tools/pkgs";
+    $cf->{spoof_path} = "$cf->{top}/tools/usr/spoof";
+}
+
+# if $cf->{use_host_tools} be setted , adjust the rpm tool
+if ( $cf->{use_host_tools} ) {
+	$cf->{rpm}        = "/usr/bin/rpm";
+	$cf->{hostconfig} = "$cf->{top}/config/platform/host/ltib-host-tools.preconfig";
+}
+
+# setup basic path to parts we will install
+$ENV{PATH} =  "$cf->{defpfx}/usr/bin:$cf->{path_std}";
 
 # make sure the root prefix for rpm is never set to / by the user
 $cf->{rpmroot} = $cf->{rfsbase} = "$cf->{bldbase}/rootfs";
@@ -599,6 +616,10 @@ build_host_rpms(1) if $cf->{hostcf};
 
 # get/set the platform directory
 $cf->{plat_dir} = get_plat_dir() or die;
+
+if ( -d "$cf->{plat_dir}/toolchain" ) {
+	build_toolchain();
+}
 
 my @rl = build_root_list();
 foreach my $n (reverse @rl) {
@@ -1479,10 +1500,17 @@ sub build_host_rpms
         $sav->{$k} = $cf->{$k};
     }
     # override with suitable host values (some host pkgs are not relocatable)
-    $cf->{rpmroot}       = '/';                  # rpm (ch)root path
-    $cf->{rpmipfx}       = '/';                  # install prefix
-    $cf->{prefix}        = "$cf->{defpfx}/usr";  # build prefix
-    $cf->{sysconfdir}    = "$cf->{defpfx}/etc";  # config files
+    if ( $cf->{bdir_local} ) {
+		$cf->{rpmroot}       = '/';  # rpm (ch)root path
+		$cf->{rpmipfx}       = "$cf->{defpfx}";  # install prefix
+		$cf->{prefix}        = "/usr";  # build prefix
+		$cf->{sysconfdir}    = "/etc";  # config files
+	} else {
+		$cf->{rpmroot}       = '/';                  # rpm (ch)root path
+		$cf->{rpmipfx}       = '/';                  # install prefix
+		$cf->{prefix}        = "$cf->{defpfx}/usr";  # build prefix
+		$cf->{sysconfdir}    = "$cf->{defpfx}/etc";  # config files
+	}
     $cf->{rpmdir}        = "$cf->{defpfx}/usr/src/rpm";
     $cf->{_rpmdir}       = "$cf->{rpmdir}/RPMS";
     $cf->{rpmdb}         = "$cf->{defpfx}/var/lib/rpm";
@@ -1530,6 +1558,64 @@ sub build_host_rpms
     return 1;
 }
 
+sub build_toolchain
+{
+    # save some old config values
+    my $sav = {};
+    my @sav_list = qw/rpmroot rpmipfx prefix sysconfdir rpmdir rpmdb tmppath
+                      nodeps force hostinst reinstall dodrop sn _rpmdir
+                      preconfig enrootn something_got_built plat_dir
+                      pkg_config_path pkg_map/;
+    foreach my $k (@sav_list) {
+        $sav->{$k} = $cf->{$k};
+    }
+    # override with suitable host values (some host pkgs are not relocatable)
+    if ( $cf->{bdir_local} ) {
+		$cf->{rpmroot}       = '/';  # rpm (ch)root path
+		$cf->{rpmipfx}       = "$cf->{defpfx}";  # install prefix
+		$cf->{prefix}        = "/usr";  # build prefix
+		$cf->{sysconfdir}    = "/etc";  # config files
+	} else {
+		$cf->{rpmroot}       = '/';                  # rpm (ch)root path
+		$cf->{rpmipfx}       = '/';                  # install prefix
+		$cf->{prefix}        = "$cf->{defpfx}/usr";  # build prefix
+		$cf->{sysconfdir}    = "$cf->{defpfx}/etc";  # config files
+	}
+    $cf->{rpmdir}        = "$cf->{defpfx}/usr/src/rpm";
+    $cf->{_rpmdir}       = "$cf->{rpmdir}/RPMS";
+    $cf->{rpmdb}         = "$cf->{defpfx}/var/lib/rpm";
+    $cf->{tmppath}       = $cf->{projtmp};
+    $cf->{nodeps}        = 1;
+    #$cf->{force}         = 0;
+    #$cf->{hostinst}      = 1;
+    $cf->{reinstall}     = 0;
+    $cf->{enrootn}       = 0;
+    $cf->{pkg_map}       = "$cf->{plat_dir}/toolchain/pkg_map";
+    $cf->{pkg_config_path}= "$cf->{defpfx}/usr/lib/pkgconfig";
+
+    # this is the case where we are doing just the basic host packages
+    $cf->{dodrop} = 'ask' unless $cf->{batch};
+    exit 0 if $cf->{mode} eq 'config';
+    #$cf->{dodrop} = 'no';
+    $cf->{preconfig} = "$cf->{plat_dir}/toolchain/toolchain.config" ;
+    #$cf->{sn} = '';
+
+    pkg_cache_init();
+    $pcf = parse_dotconfig($cf->{preconfig});
+	$pcf->{DISTRO} = "$cf->{plat_dir}/toolchain/dist";
+    check_platform_config($pcf);
+    setup_env_vars($cf, $pcf);
+    check_toolchain_setup($pcf);
+    # build host rpms
+    f_buildrpms() or die;
+
+    # restore
+    foreach my $k (@sav_list) { $cf->{$k} = $sav->{$k} }
+    undef $sav;
+
+    return 1;
+}
+
 sub host_checks
 {
     # do not attempt to re-install host packages once
@@ -1538,7 +1624,7 @@ sub host_checks
                                                   || $cf->{sn} || $cf->{batch});
 
     # if the system is ubuntu , install the lack of packages
-	if ( $ubuntu_version ) {
+	if ( $cf->{os_version} ) {
 		ubuntu_install_deps_packages();
 	}
     
@@ -1977,7 +2063,7 @@ sub mk_buildlist
     local $_;
 
     # load up the main map
-    my $map = "$cf->{config_dir}/userspace/pkg_map";
+    my $map = "$cf->{top}/$cf->{pkg_map}";
     open(MAP, $map) or die("open($map): $!");
     while(<MAP>) {
         chomp;
@@ -2214,7 +2300,7 @@ sub get_spec
     $mode ||= "";
     delete $cache->{$sn} if $mode eq 'del';
     $cache = {}          if $mode eq 'delall';
-
+	
     if(   $rpm_specs  ne "$cf->{rpmdir}/SPECS"
        || $pcf_distro ne "$cf->{top}/$pcf->{DISTRO}"
        || $defdist    ne "$cf->{top}/$cf->{defdist}"
@@ -2375,7 +2461,7 @@ TXT
 sub check_platform_config
 {
     my ($pcf) = @_;
-
+	
     # mandatory direct values
     my $ndef = "";
     foreach my $k (qw/TOOLCHAIN_PREFIX TOOLCHAIN_PATH
@@ -2386,7 +2472,7 @@ sub check_platform_config
                                                                    if $ndef;
     # indirect checks
     if( ! $pcf->{TOOLCHAIN} && $pcf->{TOOLCHAIN_PATH}) {
-        die("Cannot find $pcf->{TOOLCHAIN_PREFIX}gcc in $pcf->{TOOLCHAIN_PATH}/bin") unless -x "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc"
+		die("Cannot find $pcf->{TOOLCHAIN_PREFIX}gcc in $pcf->{TOOLCHAIN_PATH}/bin") unless -x "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc"
     }
 
     # these are "special cases"
@@ -2614,28 +2700,29 @@ sub check_rpm_setup
     setup_rpmdb();
     $cf->{sudo}   = $sav->{sudo};
     $cf->{dry}    = $sav->{dry};
-    f_buildrpms() or die;
-    # put back the database information
-    my @rpms = glob("$cf->{_rpmdir}/$pcf->{RPMTARCH}/$cf->{sn}-*");
-    my $rpm  = $rpms[0];
-    if(!$rpm) {
-         warn("could not glob rpm in: "
-                        . "$cf->{_rpmdir}/$pcf->{RPMTARCH}/$cf->{sn}-*\n");
-         die unless $cf->{dry};
-         $rpm = "$cf->{_rpmdir}/$pcf->{RPMTARCH}/rpm-fs-dummy.i686.rpm";
-    }
-    my $cmd  = "$cf->{sudo} $sav->{rpm} ";
-       $cmd .= "--root $cf->{rpmroot} ";
-       $cmd .= "--dbpath $cf->{defpfx}/var/lib/rpm ";
-       $cmd .= "-Uv --justdb --notriggers $cf->{noscripts} --nodeps ";
-       $cmd .= "$rpm";
-    print "$cmd\n";
-    system_nb($cmd);
-    $cmd = "cp $rpm $cf->{defpfx}/usr/src/rpm/RPMS/$pcf->{RPMTARCH}";
-    print "$cmd\n";
-    system_nb($cmd) == 0 or die;
-    system_nb("rm -rf $cf->{rpmdir}") == 0 or die;
-
+    if ( $cf->{use_host_tools} ne 1 ) {
+		f_buildrpms() or die;
+		# put back the database information
+		my @rpms = glob("$cf->{_rpmdir}/$pcf->{RPMTARCH}/$cf->{sn}-*");
+		my $rpm  = $rpms[0];
+		if(!$rpm) {
+			 warn("could not glob rpm in: "
+							. "$cf->{_rpmdir}/$pcf->{RPMTARCH}/$cf->{sn}-*\n");
+			 die unless $cf->{dry};
+			 $rpm = "$cf->{_rpmdir}/$pcf->{RPMTARCH}/rpm-fs-dummy.i686.rpm";
+		}
+		my $cmd  = "$cf->{sudo} $sav->{rpm} ";
+		   $cmd .= "--root $cf->{rpmroot} ";
+		   $cmd .= "--dbpath $cf->{defpfx}/var/lib/rpm ";
+		   $cmd .= "-Uv --justdb --notriggers $cf->{noscripts} --nodeps ";
+		   $cmd .= "$rpm";
+		print "$cmd\n";
+		system_nb($cmd);
+		$cmd = "cp $rpm $cf->{defpfx}/usr/src/rpm/RPMS/$pcf->{RPMTARCH}";
+		print "$cmd\n";
+		system_nb($cmd) == 0 or die;
+		system_nb("rm -rf $cf->{rpmdir}") == 0 or die;
+	}
     # restore cf
     foreach my $k (@sav_list) {
         $cf->{$k} = $sav->{$k}
@@ -2760,33 +2847,33 @@ sub check_toolchain_setup
     # test whether the compiler is present on the system, and if
     # not then install it (this is one package we can't build)
     # note: deal with x86-isms in a crude way (subst)
-    if($pcf->{TOOLCHAIN}) {
-        my $tc_rpm = tc_name($pcf->{TOOLCHAIN});
-        $tc_rpm =~ s/\.\w+\.rpm//;
-        `$cf->{rpm} -q $tc_rpm 2>/dev/null`;
-        if(! -e  "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc"
-           || `$cf->{rpm} -q $tc_rpm 2>/dev/null` =~ m,is not installed,
-           || $cf->{dltest}) {
-            $pcf->{TOOLCHAIN} = tc_name($pcf->{TOOLCHAIN});
-            print "Installing: $pcf->{TOOLCHAIN}\n" unless $cf->{dltest};
-            my $tc_url = $pcf->{TOOLCHAIN_URL} || $pcf->{TOOLCHAIN};
-            my $tc = get_file($tc_url, $cf, 1);
-            return 1 if $cf->{dltest};
-            warn("Can't get: $pcf->{TOOLCHAIN}"), die unless $tc;
+	if($pcf->{TOOLCHAIN}) {
+		my $tc_rpm = tc_name($pcf->{TOOLCHAIN});
+		$tc_rpm =~ s/\.\w+\.rpm//;
+		`$cf->{rpm} -q $tc_rpm 2>/dev/null`;
+		if(! -e  "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc"
+		   || `$cf->{rpm} -q $tc_rpm 2>/dev/null` =~ m,is not installed,
+		   || $cf->{dltest}) {
+			$pcf->{TOOLCHAIN} = tc_name($pcf->{TOOLCHAIN});
+			print "Installing: $pcf->{TOOLCHAIN}\n" unless $cf->{dltest};
+			my $tc_url = $pcf->{TOOLCHAIN_URL} || $pcf->{TOOLCHAIN};
+			my $tc = get_file($tc_url, $cf, 1);
+			return 1 if $cf->{dltest};
+			warn("Can't get: $pcf->{TOOLCHAIN}"), die unless $tc;
 
-            my $cmd =   "$cf->{sudo} $cf->{rpm} "
-                   . "--dbpath $cf->{defpfx}/var/lib/rpm "
-                   . "-ivh --force --ignorearch $tc";
-            print "$cmd\n";
-            return 1 if $cf->{dry};
+			my $cmd =   "$cf->{sudo} $cf->{rpm} "
+				   . "--dbpath $cf->{defpfx}/var/lib/rpm "
+				   . "-ivh --force --ignorearch $tc";
+			print "$cmd\n";
+			return 1 if $cf->{dry};
 
-            # switch stdout with stderr and run the command to capture stderr
-            my $err = `$cmd 3>&1 1>&2 2>&3 3>&-`;
-            if($? && $err !~ m,is already installed,) {
-                die "Failed to install: $pcf->{TOOLCHAIN}:\n$err\n"
-            }
-        }
-    }
+			# switch stdout with stderr and run the command to capture stderr
+			my $err = `$cmd 3>&1 1>&2 2>&3 3>&-`;
+			if($? && $err !~ m,is already installed,) {
+				die "Failed to install: $pcf->{TOOLCHAIN}:\n$err\n"
+			}
+		}
+	}
 
     # check that this toolchain can be accessed without the abs path
     my $gcc_path = `which $pcf->{TOOLCHAIN_PREFIX}gcc 2>/dev/null`

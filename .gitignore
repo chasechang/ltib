@@ -26,6 +26,8 @@ series
 
 # temp dir
 /tmp
+/temp
+/tools
 
 # output files
 /host_config.log

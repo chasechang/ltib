@@ -4,6 +4,7 @@ libc6-dev               0
 binutils                2.11.90
 libstdc++               0
 libstdc++-4.8-dev       0
+gcc-multilib            0
 gcc                     2.96
 sudo                    0
 zlib1g                  0
@@ -23,3 +24,22 @@ autoconf                2.54
 libtool                 1.4.2
 make                    0
 tcl                     0
+ccache                  0
+cramfsprogs             0
+distcc                  0
+device-tree-compiler    0
+git                     0
+mtd-utils               0
+sparse                  0
+u-boot-tools            0
+unifdef                 0
+genext2fs               0
+genromfs                0
+dpkg-dev                0
+libgmp3-dev             0
+libmpfr-dev             0
+libmpc-dev              0
+libcloog-isl-dev        0
+libelf-dev              0
+gawk                    0
+
