@@ -2991,7 +2991,7 @@ sub check_host_clobber
         ($path) = unpack ("x$len A*", $line);
         $path   = $inst_pfx . $path;
         $path   =~ s,/+,/,g;
-        if( $path !~ m,^(?:/opt|/tmp|/home|$cf->{rfsbase}), ) {
+        if( $path !~ m,^(?:/opt|/tmp|/home|$cf->{rfsbase}|$cf->{defpfx}/usr), ) {
             die("ERROR: $rpm\nwould clobber '$path'\n");
         }
     }
