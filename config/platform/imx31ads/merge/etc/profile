@@ -1,3 +1,0 @@
-export PS1='mx31# '
-export PATH=/usr/bin:/bin:/usr/sbin:/sbin
-alias ll='ls -l'

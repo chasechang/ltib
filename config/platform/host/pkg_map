@@ -1,2 +1,12 @@
+PKG_FAKE_PROVIDES                = fake-provides
+PKG_MKSPOOFLINKS                 = mkspooflinks
+PKG_GEN_INIT_CPIO                = gen_init_cpio
+PKG_PKGCONFIG                    = pkgconfig
+PKG_YAFFS_UTILS                  = yaffs-utils
 PKG_MTD_UTILS = mtd-utils-20060302
 PKG_WGET = wget-ssl
+
+# leave these as the last 3 packages in the build order
+PKG_SYSCONFIG                    = sysconfig
+PKG_MERGE                        = merge
+PKG_MODEPS                       = modeps

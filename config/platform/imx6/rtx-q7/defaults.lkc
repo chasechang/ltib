@@ -1,0 +1,147 @@
+config ERASE_BLOCK_SIZE
+    string
+    default 64
+config FLASH_SIZE_KB
+    string
+    default 8192
+config SYSCFG_RAM_DIRS
+    string
+    default ""
+config CAP_UCLIBC
+    bool
+    default y
+config CAP_GLIBC
+    bool
+    default y
+config CAP_LFS_5_1
+    bool
+    default y
+config CAP_FC2
+    bool
+config CAP_DEPLOYMENT_ROMFS
+    bool
+config CAP_HAS_MMU
+    bool
+    default y
+config CAP_HAS_SHARED
+    bool
+    default y
+config CAP_HAS_HARDWARE_SEC
+	bool
+	default n
+config 8XX_ARCH
+    bool
+    default n
+config E300_ARCH
+    bool
+    default n
+config E300C2_ARCH
+    bool
+    default n
+config E300C3_ARCH
+    bool
+    default n
+config E500V1_ARCH
+    bool
+    default n
+config E500V2_ARCH
+    bool
+    default n
+config E600_ARCH
+    bool
+    default n
+config SOFT_FP_ARCH
+    bool
+    default n
+config E500MC_ARCH
+    bool
+    default n
+config PPC64_ARCH
+    bool
+    default n
+config ARMOABI_ARCH
+    bool
+    default n
+config ARMOABI_SOFTFP_ARCH
+    bool
+    default n
+config ARMEABI_ARCH
+    bool
+    default y
+config VFP_ARCH
+    bool
+    default n
+config M68KNOMMU_ARCH
+    bool
+    default n
+config M68K_ARCH
+    bool
+    default n
+config RPI_ARCH
+    bool
+    default n
+config PKG_GCC_NAME
+    string
+    default "nobuild"
+
+config DISTRO
+    string
+    default "config/platform/imx6/dist"
+
+config BI_ENDIAN
+    bool
+config ENDIAN
+    string
+    default "big" if LINTARCH = "ppc" || LINTARCH = "powerpc" || LINTARCH = "sparc" || LINTARCH = "m68k" || LINTARCH = "m68knommu" || LINTARCH = "ppc64"
+    default "little"
+config SYSCFG_TMPFS
+    string
+    default "tmpfs"
+config SYSCFG_TMPFS_SIZE
+    string
+    default "512k"
+config INITTAB_LINE
+    string
+    default "::respawn:-/sbin/getty -L console 0 screen" if !PKG_SYSVINIT
+    default "/sbin/getty -L console 0 screen" if PKG_SYSVINIT && PKG_BUSYBOX && !PKG_UTIL_LINUX
+    default "/sbin/getty -L console 115200 screen" if PKG_SYSVINIT && PKG_TINYLOGIN && !PKG_UTIL_LINUX
+    default "/sbin/agetty -L console 115200 screen" if PKG_SYSVINIT && PKG_UTIL_LINUX
+config UCLIBC_DYNAMIC_LINKER
+    string
+    default "/lib/ld-uClibc.so.0"
+config GLIBC_DYNAMIC_LINKER
+    string
+    default "/lib/ld.so.1"
+config SYSCFG_BAUD
+    string
+    default "115200"
+config SYSCFG_CONSOLEDEV
+    string
+    default "ttyS0"
+config SYSCFG_BOOTLOADER
+    string
+    default "u-boot"
+config U_BOOT_IMAGE_TYPE
+    string
+    default "ppc"
+config SYSCFG_RUNKERNELADDR
+    string
+    default "0x0"
+config SYSCFG_LOADKERNELADDR
+    string
+    default "0x800000"
+config SYSCFG_LOADDTBADDR
+    string
+    default "0x9F0000"
+config SYSCFG_LOADRAMADDR
+    string
+    default "0xB00000"
+config SYSCFG_CUTARG
+    string
+    default "zImage"
+config CAP_FSL_INT
+    bool
+    default n
+config LTIB_RELEASE
+    string
+    default "9.1.1"

@@ -1,2 +1,0 @@
-PKG_OPENSSL = openssl-0.9.7g
-PKG_MTD_UTILS = mtd-utils-20060302

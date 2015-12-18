@@ -1,8 +1,0 @@
-comment 'Raspberry Pi Packages'
-
-config PKG_RPI_BOOT
-    bool "rpi_boot"
-    default y if PLATFORM_rpi
-    help
-	Install the package needed to build a bootable RPI image.
-

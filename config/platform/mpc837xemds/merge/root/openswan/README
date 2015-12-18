@@ -1,1 +1,0 @@
-The scripts 'home-ipsec-script.sh' and 'office-ipsec-script.sh' are for IPsec verification, and can only be used when package 'openswan' is enabled in LTIB.

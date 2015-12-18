@@ -1,0 +1,79 @@
+# Toolchain selection and configuration file.
+comment "Toolchain selection."
+
+# arm Toolchains.
+# ---------------
+
+choice
+prompt "Toolchain"
+    help
+        This menu will help to select the cross toolchain that will be
+        used to build the BSP.  To use a toolchain not present in the
+        list of choices select the custom option and enter the
+        toolchain path and prefix in the appropriate boxes.
+
+    config TOOLCHAIN_CORTEX_A9_GNUEABIHF_4_9_2
+        bool "arm(cortex a9) gcc-4.9.2/glibc-2.19 hard-float"
+        help
+            gcc-4.9.2  glibc-2.19 generic arm little endian toolchain.
+            linuxthreads threads libraries.
+            Toolchain built by Freescale.
+
+    config TOOLCHAIN_CORTEX_A8_GNUEABI_4_9_2
+        bool "arm(cortex a8) gcc-4.9.2/glibc-2.19"
+        help
+            gcc-4.9.2  glibc-2.19 generic arm little endian toolchain.
+            linuxthreads threads libraries.
+            Toolchain built by Freescale.
+
+    config TOOLCHAIN_ARMOABI_CUSTOM
+        bool "Custom"
+        help
+            Select the custom option to use toolchains that are not
+            in the available toolchain list.
+endchoice
+
+config CUSTOM_TOOLCHAIN
+    bool
+    default n
+
+config TOOLCHAIN
+    string
+    default arm-cortex_a9-linux-gnueabihf-linaro_4.9.2-2014.09.tar.bz2 if TOOLCHAIN_CORTEX_A9_GNUEABIHF_4_9_2
+    default arm-cortex_a8-linux-gnueabi-linaro_4.9.2-2014.09.tar.bz2 if TOOLCHAIN_CORTEX_A8_GNUEABI_4_9_2
+    
+config TOOLCHAIN_PATH
+    string "Enter the custom toolchain path." if CUSTOM_TOOLCHAIN
+    help
+        Enter the path to the toolchain executables, headers, and libraries.
+        This path should be the top level directory for the toolchain.
+
+    default "arm-cortex_a9-linux-gnueabihf-linaro_4.9.2-2014.09" if TOOLCHAIN_CORTEX_A9_GNUEABIHF_4_9_2
+    default "arm-cortex_a8-linux-gnueabi-linaro_4.9.2-2014.09" if TOOLCHAIN_CORTEX_A8_GNUEABI_4_9_2
+
+config CUSTOM_TOOLCHAIN_PREFIX
+    depends CUSTOM_TOOLCHAIN
+    string "Enter the toolchain prefix."
+    help
+        Enter the toolchain executable prefix, for example:
+        powerpc-linux-gnu-
+
+config TOOLCHAIN_PREFIX
+    string
+    default "arm-cortex_a9-linux-gnueabihf-" if TOOLCHAIN_CORTEX_A9_GNUEABIHF_4_9_2
+    default "arm-cortex_a8-linux-gnueabi-" if TOOLCHAIN_CORTEX_A8_GNUEABI_4_9_2
+    default CUSTOM_TOOLCHAIN_PREFIX if CUSTOM_TOOLCHAIN
+
+config TOOLCHAIN_CFLAGS
+    string "Enter any CFLAGS for gcc/g++"
+    default "-O2 -march=armv7-a -mfpu=neon" if TOOLCHAIN_CORTEX_A9_GNUEABIHF_4_9_2
+    default "-O2 -march=armv7-a -mfpu=neon -mfloat-abi=softfp" if TOOLCHAIN_CORTEX_A8_GNUEABI_4_9_2
+    default "" if CUSTOM_TOOLCHAIN
+    
+    help
+        Enter any flags to be passed to gcc/g++ here.
+        These flags will be injected by the spoofing mechanism, so they only
+        work if the compiler is referenced as gcc/g++ in the rpm spec files.
+        For example they won't get injected if the c compiler is referenced
+        by powerpc-linux-gcc.
+

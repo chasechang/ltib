@@ -1,0 +1,75 @@
+# constants (forced values)
+config CONFIG_TITLE
+    string
+    default PLATFORM_COMMENT
+
+config PLATFORM_COMMENT
+    string
+    default "Freescale iMX6 reference boards"
+
+config VENDOR
+    string
+    default "Freescale"
+
+comment "Choose your platform SOC"
+choice
+    prompt "Platform"
+    default PLATFORM_IS_IMX6Q
+    help
+        This menu will let you choose the platform SOC to use with your board.
+
+    config PLATFORM_IS_IMX6Q
+        bool "imx6q"
+    config PLATFORM_IS_IMX6DL
+        bool "imx6dl"
+    config PLATFORM_IS_IMX6S
+        bool "imx6s"
+    config PLATFORM_IS_IMX6SL
+        bool "imx6sl"
+endchoice 
+
+config PLATFORM
+    string 
+    default "imx6q" if PLATFORM_IS_IMX6Q
+    default "imx6dl" if PLATFORM_IS_IMX6DL
+    default "imx6s" if PLATFORM_IS_IMX6S
+    default "imx6sl" if PLATFORM_IS_IMX6SL
+    help
+        Indicates the platform selected from preconfigs.  Please don't change
+        in this session
+
+config PLATFORM_SUBDIR
+    string
+    default imx
+
+config GNUTARCH
+    string
+    default arm
+
+config LINTARCH
+    string
+    default arm
+
+config CFGHOST
+    string
+    default arm-linux
+
+config ARMEABI_ARCH
+    bool
+    default y
+
+config VFP_ARCH
+    bool
+    default y
+
+# capabilities if different from defaults.lkc
+source board.lkc
+source endian.lkc
+source libc_type.lkc
+source toolchain.lkc
+source bootloader.lkc
+source kernel.lkc
+source packages.lkc
+source sysconfig.lkc
+source deployment.lkc
+source defaults.lkc

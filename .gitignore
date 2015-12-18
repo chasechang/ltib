@@ -12,6 +12,7 @@ series
 
 # Local configuration
 .*
+/config/main.lkc
 
 # Do track the ltibrc, or not?
 !/.ltibrc
@@ -41,3 +42,4 @@ series
 /*.patch
 /*.iso
 /rootfs_image
+/out

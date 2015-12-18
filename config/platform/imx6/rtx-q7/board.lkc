@@ -1,0 +1,69 @@
+# constants (forced values)
+comment "Choose your Board"
+choice
+    prompt "Board"
+    default BOARD_MX6Q_RTX_Q7
+    depends on PLATFORM = "imx6q"
+    help
+        This menu will let you choose the board you use.
+
+    config BOARD_MX6Q_RTX_A6
+        bool "mx6q , Retronix A6 Board"
+    config BOARD_MX6Q_RTX_Q7
+        bool "mx6q , Retronix Q7 Board"
+
+endchoice
+
+choice
+    prompt "Board"
+    default BOARD_MX6DL_RTX_Q7
+    depends on PLATFORM = "imx6dl"
+    help
+        This menu will let you choose the board you use.
+
+    config BOARD_MX6DL_RTX_A6
+        bool "mx6dl , Retronix A6 Board"
+    config BOARD_MX6DL_RTX_Q7
+        bool "mx6dl , Retronix Q7 Board"
+
+endchoice
+
+choice
+    prompt "Board"
+    default BOARD_MX6S_RTX_Q7
+    depends on PLATFORM = "imx6s"
+    help
+        This menu will let you choose the board you use.
+
+    config BOARD_MX6S_RTX_A6
+        bool "mx6s , Retronix A6 Board"
+    config BOARD_MX6S_RTX_Q7
+        bool "mx6s , Retronix Q7 Board"
+
+endchoice
+
+choice
+    prompt "Board"
+    default BOARD_MX6SL_RTX_Q7
+    depends on PLATFORM = "imx6sl"
+    help
+        This menu will let you choose the board you use.
+
+    config BOARD_MX6SL_RTX_A6
+        bool "mx6sl , Retronix A6 Board"
+    config BOARD_MX6SL_RTX_Q7
+        bool "mx6sl , Retronix Q7 Board"
+
+endchoice
+
+config BOARD_NAME
+    string
+    default "mx6q-rtx-a6"  if BOARD_MX6Q_RTX_A6
+    default "mx6q-rtx-q7"  if BOARD_MX6Q_RTX_Q7
+    default "mx6dl-rtx-a6" if BOARD_MX6DL_RTX_A6
+    default "mx6dl-rtx-q7" if BOARD_MX6DL_RTX_Q7
+    default "mx6s-rtx-a6"  if BOARD_MX6S_RTX_A6
+    default "mx6s-rtx-q7"  if BOARD_MX6S_RTX_Q7
+    default "mx6sl-rtx-a6" if BOARD_MX6SL_RTX_A6
+    default "mx6sl-rtx-q7" if BOARD_MX6SL_RTX_Q7
+

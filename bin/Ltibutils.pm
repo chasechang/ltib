@@ -197,6 +197,7 @@ sub parse_spec
     return $tokens if $mode eq 'name';
     m,^%define\s+base\s+(.+),m and do { $tokens->{base}  = $1 };
     m,^%define\s+pfx\s+([\S]+),m and do { $tokens->{pfx}  = $1 };
+    m,^%define\s+git-branch\s+([\S]+),m and do { $tokens->{git_branch}  = $1 };
     m,^%define\s+buildsubdir\s+([\S]+)$,m 
                                 and do { $tokens->{pkg_dir_name} = $1 };
     m,^summary\s*:\s*(.+)$,mi   and do { $tokens->{summary} = $1 };
@@ -253,44 +254,75 @@ sub interp_vars
 
 sub get_file
 {
-    my ($url, $cf, $force_md5) = @_;
+    my ($url, $cf, $force_md5, $tok) = @_;
     warn("no url passed"), return unless $url;
     warn("lpp: $cf->{lpp} is not a directory"), return unless -d $cf->{lpp};
     my ($path,  $refmd5);
     my ($file)  = $url =~ m-/?([^/]+)$-;
-
-    # This is needed to let LWP::UserAgent cycle through the authentication
-    # types in the test proxy section (called from here lower down)
-    local $SIG{__DIE__} = 'DEFAULT';
-
-    # only test the file if in test mode
-    return test_remote_file($url, $cf) if $cf->{dltest};
-
-    # Don't check md5sums if file is local unless forced.  The rationale is
-    # that it would be checked when downloaded, and if not downloaded, we
-    # may not want to do network accesses.
-    my @ldirs = grep { ! m,^\s*$, && ! m,\s*#, } split(/\s+/, $cf->{ldirs});
-    my @sdirs = ($cf->{lpp}, @ldirs, "$cf->{top}/pkgs");
-    foreach my $dir ( @sdirs ) {
-        $path = "$dir/$file";
-        if(-f $path) {
-            return $path if ! $force_md5 || $cf->{dry};
-
-            # try to get the reference md5sum for this file
-            $refmd5 = get_ref_md5($file, $cf, $dir);
-            return md5sum_ok($path, $refmd5) ? $path : undef;
+    my $git_checkout_cmd = "git archive --format=tar.gz --remote=file:///$cf->{lpp}/git/$file -o $file.tar.gz master" ;
+    
+    if ( defined $tok ) {
+        if ( defined $tok->{git_branch} ) {
+            $git_checkout_cmd = "git archive --format=tar.gz --remote=file:///$cf->{lpp}/git/$file -o $file.tar.gz $tok->{git_branch}" ;
         }
     }
-    print("get_remote_file: $url\n"), return if $cf->{dry};
+    
+    if( substr($url, 0, 6) eq "ssh://" || substr($url, 0, 6) eq "git://" ) {
+        if ( ! -f "$cf->{lpp}/$file.tar.gz" ) {
+            system_nb(<<TXT) == 0 or die;
+set -ex
+cd $cf->{lpp}/git
+if [ ! -f $file/.finish ] ; then
+    git clone $url --mirror 2>&1
+    touch $file/.finish
+fi
+cd - >/dev/null
+cd $cf->{lpp}
+if [ -f $file.tar.gz ] ; then
+    rm -f $file.tar.gz
+fi
+$git_checkout_cmd
+cd - >/dev/null
+TXT
 
-    # try to get the reference md5sum for this file
-    $refmd5 = get_ref_md5($file, $cf, $cf->{lpp}) unless $refmd5;
+        }
+        $path = "$cf->{lpp}/$file.tar.gz" ;
+        return $path ;
+    } else {
+        # This is needed to let LWP::UserAgent cycle through the authentication
+        # types in the test proxy section (called from here lower down)
+        local $SIG{__DIE__} = 'DEFAULT';
 
-    # try to get the file from various remote locations
-    $path = get_remote_file($url, $cf) or return;
+        # only test the file if in test mode
+        return test_remote_file($url, $cf) if $cf->{dltest};
 
-    # if we got the file, verify the md5sum
-    return md5sum_ok($path, $refmd5) ? $path : undef;
+        # Don't check md5sums if file is local unless forced.  The rationale is
+        # that it would be checked when downloaded, and if not downloaded, we
+        # may not want to do network accesses.
+        my @ldirs = grep { ! m,^\s*$, && ! m,\s*#, } split(/\s+/, $cf->{ldirs});
+        my @sdirs = ($cf->{lpp}, @ldirs, "$cf->{top}/pkgs");
+        foreach my $dir ( @sdirs ) {
+            $path = "$dir/$file";
+            if(-f $path) {
+                return $path if ! $force_md5 || $cf->{dry};
+
+                # try to get the reference md5sum for this file
+                $refmd5 = get_ref_md5($file, $cf, $dir);
+                return md5sum_ok($path, $refmd5) ? $path : undef;
+            }
+        }
+        print("get_remote_file: $url\n"), return if $cf->{dry};
+
+        # try to get the reference md5sum for this file
+        $refmd5 = get_ref_md5($file, $cf, $cf->{lpp}) unless $refmd5;
+
+        # try to get the file from various remote locations
+        $path = get_remote_file($url, $cf) or return;
+
+        # if we got the file, verify the md5sum
+        return md5sum_ok($path, $refmd5) ? $path : undef;
+    }
+    return undef;
 }
 
 $proxy_tested = 0;

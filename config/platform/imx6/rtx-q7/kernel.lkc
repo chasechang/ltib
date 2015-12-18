@@ -1,0 +1,127 @@
+# constants (forced values)
+
+config SYSCFG_KTARG
+    string
+    default "uImage"
+
+config SYSCFG_BOOT_KERNEL
+    string
+    default "arch/arm/boot/uImage arch/arm/boot/zImage"
+
+comment "Choose your Kernel"
+choice
+    prompt "kernel"
+    default KERNEL_NONE
+    help
+        This menu will let you choose the kernel to use with your board.
+        If you don't want to build a kernel, unselect this option.
+
+    config KERNEL_RTX_GIT
+        bool "linux from retronix git server"
+        help
+            Build using a git clone of the kernel sources
+    config KERNEL_DIR_BUILD
+        bool "Local Linux directory build"
+        help
+            Build using a local copy of the kernel sources
+    config KERNEL_NONE
+        bool "Dont build the Linux kernel"
+        help
+            Select this if you dont want to build the kernel
+endchoice
+
+config PKG_KERNEL_PATH_PRECONFIG
+    depends on KERNEL_DIR_BUILD
+    string "Enter your Linux source directory"
+    default "/usr/src/linux"
+    help
+       If you are building the Linux kernel using a local Linux
+       source tree, specify the absolute path to the tree here
+
+
+config PKG_KERNEL_KBOUT
+    depends ! KERNEL_NONE
+    bool "Build the kernel out of tree?"
+
+config PKG_KERNEL_KBUILD_PRECONFIG
+    depends on PKG_KERNEL_KBOUT
+    string "KBUILD_OUTPUT path"
+    default "$PKG_KERNEL_PATH_PRECONFIG/../kbuild/$PLATFORM" if KERNEL_DIR_BUILD
+    default "$RPM_BUILD_DIR/kbuild/$PLATFORM"
+    help
+       If you are building the Linux kernel using a local Linux
+       tree, specify the absolute path to set KBUILD_OUTPUT to.
+
+config PKG_KERNEL_FORCE
+    depends on ! KERNEL_NONE
+    bool "Always rebuild the kernel"
+    help
+       Always attempt building the kernel source tree.  This is
+       useful if you have an unpacked source tree that you are
+       regularly updating and is under autotest
+
+config PKG_KERNEL_NEEDSRC
+    bool
+    help
+       Always leave the kernel source unpacked.  The idea is that
+       packages (such as kernel modules) select this parameter
+       and that this is persistent and so even after cleaning etc
+       the kernel source is unpacked.  This is as opposed to the
+       user visible option PKG_KERNEL_LEAVESRC which is a transient
+       config parameter, which gets cleared after a build
+
+config PKG_KERNEL_WANT_CSCOPE
+    depends ! KERNEL_NONE
+    select PKG_KERNEL_LEAVESRC
+    bool "Produce cscope index"
+    help
+       Enable to produce the cscope index for the kernel.  This requires that
+       cscope be installed on the host.  After the index is generated as part
+       of the kernel build, do 'cscope -d -p3' in the kernel source directory.
+
+config PKG_KERNEL
+    string
+    default "kernel-rtx-git"      if KERNEL_RTX_GIT
+    default "kernel-dir-build"    if KERNEL_DIR_BUILD
+
+config PKG_KERNEL_WANT_HEADERS
+    depends ! KERNEL_NONE
+    bool "Include kernel headers"
+    default y
+    help
+        Selecting this will copy kernel headers to rootfs/usr/src/linux/include
+
+config PKG_KERNEL_WANT_CF
+    depends ! KERNEL_NONE
+    bool "Configure the kernel"
+    default n
+
+config PKG_KERNEL_LEAVESRC
+    depends ! KERNEL_NONE
+    bool "Leave the sources after building"
+    default y
+    help
+        This option leaves the build source tree in rpm/BUILD in place
+
+config PKG_KERNEL_UPDATER
+    depends ! KERNEL_NONE
+    bool "Build mfg firmware"
+    default n
+
+config PKG_KERNEL_PRECONFIG
+string
+    default "rtx-q7-mx6q_defconfig" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_Q7 )
+    default "rtx-a6-mx6q_defconfig" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_A6 )
+    default "linux-kernel-dir-build.config" if KERNEL_DIR_BUILD
+
+config SYSCFG_KERNEL_LOADADDR
+string
+    default "0x10008000" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_Q7 )
+    default "0x10008000" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_A6 )
+    default "0x10008000" if KERNEL_DIR_BUILD
+
+config SYSCFG_DTC_NAME
+    string
+    default "imx6q-rtx-q7.dtb" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_Q7 )
+    default "imx6q-rtx-a6.dtb" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_A6 )
+    default "imx6q-rtx-q7.dtb" if KERNEL_DIR_BUILD

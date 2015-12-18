@@ -40,6 +40,7 @@ use lib("$FindBin::Bin/bin");
 use Ltibutils;
 #use LWP::Debug qw(+);
 use IO::File;
+use File::Basename;
 
 chomp($hostname = `hostname`);
 $top  = $FindBin::Bin;
@@ -844,7 +845,7 @@ sub build_rpm
     my $tok = parse_spec($spec) or die();
     my @rpms = glob("$cf->{_rpmdir}/$pcf->{RPMTARCH}/$tok->{name}-$tok->{version}-$tok->{release}*");
     my $pkgfail = 0;
-
+    
     # check for rebuild conditions
     my $dir_bld  =    -e "$cf->{rpmdir}/BUILD/$tok->{pkg_dir_name}" 
                    || (   $tok->{version} eq 'local' 
@@ -894,7 +895,7 @@ CF_FILE_CHECK:
                 my $tgt = "$cf->{rpmdir}/SOURCES/$file";
                 if(! -e $tgt || $cf->{dltest} || $cf->{download_only}) {
                     my $src;
-                    unless( $src = get_file($url, $cf, 1) ) {
+                    unless( $src = get_file($url, $cf, 1, $tok) ) {
                         next if $cf->{dry};
                         $cf->{pkg_build_failures} .= "$sn " unless $pkgfail;
                         $pkgfail = 1;
@@ -1013,6 +1014,7 @@ TXT
                . "--target $pcf->{RPMTARCH} "
                . "--define '_unpackaged_files_terminate_build 0' "
                . "--define '_target_cpu $pcf->{RPMTARCH}' "
+               . "--define '_arch $pcf->{RPMTARCH}' "
                . "--define '__strip strip' "
                . "--define '_topdir $cf->{rpmdir}' "
                . "--define '_prefix $cf->{prefix}' "
@@ -1301,7 +1303,7 @@ else
 fi
 cd -
 mv $cf->{rpmdir}/BUILD/$pkg_dir_name $cf->{rpmdir}/BUILD/$pkg_dir_name.modified
-$cf->{rpmbuild} --dbpath $cf->{rpmroot}/$cf->{rpmdb} --define '_target_cpu $pcf->{RPMTARCH}' --define '_topdir $cf->{rpmdir}' --define '_prefix $cf->{prefix}' --define '_tmppath $cf->{projtmp}' --define '_mandir $cf->{prefix}/$cf->{mandir}' --define '_sysconfdir $cf->{sysconfdir}' -bp $specout >/dev/null || exit 1
+$cf->{rpmbuild} --dbpath $cf->{rpmroot}/$cf->{rpmdb} --define '_target_cpu $pcf->{RPMTARCH}' --define '_arch $pcf->{RPMTARCH}' --define '_topdir $cf->{rpmdir}' --define '_prefix $cf->{prefix}' --define '_tmppath $cf->{projtmp}' --define '_mandir $cf->{prefix}/$cf->{mandir}' --define '_sysconfdir $cf->{sysconfdir}' -bp $specout >/dev/null || exit 1
 cd $cf->{rpmdir}/BUILD
 diff --exclude CVS --exclude .git -uNr $pkg_dir_name $pkg_dir_name.modified > $cf->{lpp}/$pname
 rm -rf $cf->{rpmdir}/BUILD/$pkg_dir_name
@@ -1538,7 +1540,7 @@ sub build_host_rpms
     pkg_cache_init();
     $pcf = parse_dotconfig($cf->{preconfig});
     check_platform_config($pcf);
-    setup_env_vars($cf, $pcf);
+    setup_env_vars($cf, $pcf, 1);
     check_toolchain_setup($pcf);
 
     # run the required mode if developing host packages
@@ -1604,7 +1606,7 @@ sub build_toolchain
     $pcf = parse_dotconfig($cf->{preconfig});
 	$pcf->{DISTRO} = "$cf->{plat_dir}/toolchain/dist";
     check_platform_config($pcf);
-    setup_env_vars($cf, $pcf);
+    setup_env_vars($cf, $pcf, 1);
     check_toolchain_setup($pcf);
     # build host rpms
     f_buildrpms() or die;
@@ -1687,8 +1689,8 @@ sub pre_build_checks
     pkg_cache_init();
     $pcf = parse_dotconfig($cf->{preconfig});
     check_platform_config($pcf);
+    setup_env_vars($cf, $pcf, 0);
     setup_rpmdb();
-    setup_env_vars($cf, $pcf);
     process_full_rebuild();
     legacy_rpm_fixups();
     check_spoofing();
@@ -1702,8 +1704,21 @@ sub pre_build_checks
 
 sub setup_env_vars
 {
-    my($cf, $pcf) = @_;
+    my($cf, $pcf, $forhost) = @_;
 
+    if ( substr( $pcf->{TOOLCHAIN_PATH} , 0 , 1 ) ne '/' )
+    {
+        $pcf->{TOOLCHAIN_PATH} = "$cf->{defpfx}/$pcf->{TOOLCHAIN_PATH}"
+    }
+    
+    if ( $forhost eq 0 )
+    {
+        $cf->{rpmroot} = $cf->{rfsbase} = "$cf->{bldbase}/out/$pcf->{BOARD_NAME}/rootfs";
+        $cf->{pkg_config_path} = "$cf->{rpmroot}/usr/lib/pkgconfig";
+        $cf->{rpmdir}  = "$cf->{bldbase}/out/$pcf->{BOARD_NAME}/rpm/" ;
+        $cf->{_rpmdir} = "$cf->{bldbase}/out/$pcf->{BOARD_NAME}/rpm/RPMS" ;
+    }
+    
     $ENV{UNSPOOF_PATH} =
                  "$cf->{bin_path}:"
                  . "$cf->{defpfx}/usr/bin:"
@@ -2063,7 +2078,7 @@ sub mk_buildlist
     local $_;
 
     # load up the main map
-    my $map = "$cf->{top}/$cf->{pkg_map}";
+    my $map = "$cf->{plat_dir}/pkg_map";
     open(MAP, $map) or die("open($map): $!");
     while(<MAP>) {
         chomp;
@@ -2083,50 +2098,6 @@ sub mk_buildlist
                                                             if $verbose;
     }
     close MAP;
-
-    # load up the override map if present.
-    $map = "$cf->{plat_dir}/pkg_map";
-    if( -f $map ) {
-        my $seen = {};
-        local *read_pkg_map =
-        sub {
-            my ($fn) = shift;
-            return if $seen->{$fn};
-            $seen->{$fn} = 1;
-            my $FH = IO::File->new($fn) or die("open $fn : $!");
-            while(<$FH>) {
-                proc_pkg_map($_)
-            }
-            delete($seen->{fn});
-        };
-        local *proc_pkg_map =
-        sub {
-            local $_ = shift;
-            chomp;
-            return if m,^\s*$,;
-            return if m,^\s*#,;
-            m,$pre,o or warn("invalid token: $_"), return;
-            $key = $1;
-            if($key eq 'source') {
-                read_pkg_map("$cf->{config_dir}/userspace/$2");
-                return;
-            }
-            if(! exists $$key->{sn}) {
-                if(! exists $pcf->{$key}) {
-                    warn("$key in $map is not selectable\n") if $verbose;
-                    $pcf->{$key} = '';
-                }
-                # insert just before sysconfig (3rd from last)
-                splice(@{$pcac->{mk_buildlist}}, -3, 0, $key);
-            }
-            $$key->{sn} = $pcf->{$key} && $pcf->{$key} ne 'y' ?  $pcf->{$key} : $2;
-            $$key->{en} = $pcf->{$key} ? 1 : 0;
-            $cf->{pkg_map}{$2} = $$key->{en};
-            warn "mk_buildlist (plat/pkg_map): key=$key, sn=$$key->{sn}, en=$$key->{en}\n"
-                                                            if $verbose;
-        };
-        read_pkg_map($map);
-    }
 
     # A user can specifiy -p <pkg>.  Without the '.spec' extention
     # means we should lookup the specfile name from the package.
@@ -2303,11 +2274,11 @@ sub get_spec
 	
     if(   $rpm_specs  ne "$cf->{rpmdir}/SPECS"
        || $pcf_distro ne "$cf->{top}/$pcf->{DISTRO}"
-       || $defdist    ne "$cf->{top}/$cf->{defdist}"
+       || $defdist    ne "$cf->{plat_dir}/dist"
        || $plat_specs ne $cf->{plat_dir} ) {
         $rpm_specs   = "$cf->{rpmdir}/SPECS";
         $pcf_distro  = "$cf->{top}/$pcf->{DISTRO}";
-        $defdist     = "$cf->{top}/$cf->{defdist}";
+        $defdist     = "$cf->{plat_dir}/dist";
         $plat_specs  = $cf->{plat_dir};
 
         @dirs    = ($rpm_specs, $plat_specs, glob("$pcf_distro/*") );
@@ -2800,6 +2771,12 @@ If you have changed this, please carefully re-check this setting.
 
 TXT
     }
+    
+    # we share the download cache area, all must be able to write there
+    if(! -e '$cf->{lpp}/git' ) {
+        system_nb("mkdir -p $cf->{lpp}/git") ;
+        chmod(02775, '$cf->{lpp}/git')
+    }
     use filetest 'access';
     unless(-w $cf->{lpp} && -r $cf->{lpp}) {
         die <<TXT;
@@ -2848,31 +2825,49 @@ sub check_toolchain_setup
     # not then install it (this is one package we can't build)
     # note: deal with x86-isms in a crude way (subst)
 	if($pcf->{TOOLCHAIN}) {
+        my @exts = qw(.gz .rpm .bz2 .xz);
 		my $tc_rpm = tc_name($pcf->{TOOLCHAIN});
-		$tc_rpm =~ s/\.\w+\.rpm//;
-		`$cf->{rpm} -q $tc_rpm 2>/dev/null`;
-		if(! -e  "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc"
-		   || `$cf->{rpm} -q $tc_rpm 2>/dev/null` =~ m,is not installed,
-		   || $cf->{dltest}) {
-			$pcf->{TOOLCHAIN} = tc_name($pcf->{TOOLCHAIN});
-			print "Installing: $pcf->{TOOLCHAIN}\n" unless $cf->{dltest};
-			my $tc_url = $pcf->{TOOLCHAIN_URL} || $pcf->{TOOLCHAIN};
-			my $tc = get_file($tc_url, $cf, 1);
-			return 1 if $cf->{dltest};
-			warn("Can't get: $pcf->{TOOLCHAIN}"), die unless $tc;
+        my ($dir, $name, $ext) = fileparse($pcf->{TOOLCHAIN}, @exts);
 
-			my $cmd =   "$cf->{sudo} $cf->{rpm} "
-				   . "--dbpath $cf->{defpfx}/var/lib/rpm "
-				   . "-ivh --force --ignorearch $tc";
-			print "$cmd\n";
-			return 1 if $cf->{dry};
+        if( $ext eq '.bz2' || $ext eq '.gz' || $ext eq '.xz' ) 
+        {
+            if(! -e  "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc" )
+            {
+                my $tc_url = $pcf->{TOOLCHAIN};
+                my $tc = get_file($tc_url, $cf, 1);
+                system_nb(<<TXT) == 0 or die;
+set -ex
+tar xf $tc -C $cf->{defpfx}
+TXT
+            }
+        }
+        else 
+        {
+            $tc_rpm =~ s/\.\w+\.rpm//;
+            `$cf->{rpm} -q $tc_rpm 2>/dev/null`;
+            if(! -e  "$pcf->{TOOLCHAIN_PATH}/bin/$pcf->{TOOLCHAIN_PREFIX}gcc"
+               || `$cf->{rpm} -q $tc_rpm 2>/dev/null` =~ m,is not installed,
+               || $cf->{dltest}) {
+                $pcf->{TOOLCHAIN} = tc_name($pcf->{TOOLCHAIN});
+                print "Installing: $pcf->{TOOLCHAIN}\n" unless $cf->{dltest};
+                my $tc_url = $pcf->{TOOLCHAIN_URL} || $pcf->{TOOLCHAIN};
+                my $tc = get_file($tc_url, $cf, 1);
+                return 1 if $cf->{dltest};
+                warn("Can't get: $pcf->{TOOLCHAIN}"), die unless $tc;
 
-			# switch stdout with stderr and run the command to capture stderr
-			my $err = `$cmd 3>&1 1>&2 2>&3 3>&-`;
-			if($? && $err !~ m,is already installed,) {
-				die "Failed to install: $pcf->{TOOLCHAIN}:\n$err\n"
-			}
-		}
+                my $cmd =   "$cf->{sudo} $cf->{rpm} "
+                       . "--dbpath $cf->{defpfx}/var/lib/rpm "
+                       . "-ivh --force --ignorearch $tc";
+                print "$cmd\n";
+                return 1 if $cf->{dry};
+
+                # switch stdout with stderr and run the command to capture stderr
+                my $err = `$cmd 3>&1 1>&2 2>&3 3>&-`;
+                if($? && $err !~ m,is already installed,) {
+                    die "Failed to install: $pcf->{TOOLCHAIN}:\n$err\n"
+                }
+            }
+        }      
 	}
 
     # check that this toolchain can be accessed without the abs path
@@ -3305,13 +3300,20 @@ CHOOSE_TOP_PLATFORM:
 
 sub mk_main_conf
 {
-    my ($dir, $ent, $p, $mcf) = ("config/platform", "", {});
+    my ($dir, $ent, $ent1, $p, $mcf) = ("config/platform", "", "", {} );
     my $platforms = ();
     opendir(DIR, $dir) or die("can't open $dir: $!");
     while( defined($ent = readdir(DIR)) ) {
         next unless -d "$dir/$ent";
         next if $ent eq 'CVS' || $ent eq '.' || $ent eq '..' || $ent eq 'host';
         $p->{$ent} = 0;
+        opendir(DIR1, "$dir/$ent") or die("can't open $dir/$ent: $!");
+        while( defined($ent1 = readdir(DIR1)) ) {
+            next unless -d "$dir/$ent/$ent1";
+            next if $ent1 eq 'CVS' || $ent1 eq '.' || $ent1 eq '..' || $ent1 eq 'dist';
+            $p->{"$ent/$ent1"} = 0;
+        }
+        closedir(DIR1);
     }
     closedir(DIR);
     local $/ = "";
@@ -3342,8 +3344,12 @@ choice
         bool "Hit enter to select"
 TXT
     foreach $mcf (sort keys %$p) {
+        my $tmpstr ;
         next if ! $p->{$mcf};
-        print MCF "    config PLATFORM_$mcf\n";
+        $tmpstr = $mcf;
+        $tmpstr =~ s/\//_/;
+        $tmpstr =~ s/-/_/;
+        print MCF "    config PLATFORM_$tmpstr\n";
         print MCF "        bool $p->{$mcf}";
     }
     print MCF <<TXT;
@@ -3353,7 +3359,13 @@ config PLATFORM_DIR
     string
 TXT
     foreach $mcf (keys %$p) {
-        print MCF "    default \"$dir/$mcf\" if PLATFORM_$mcf\n";
+        if ( "$p->{$mcf}" ne "0" ) {
+            my $tmpstr ;
+            $tmpstr = $mcf;
+            $tmpstr =~ s/\//_/;
+            $tmpstr =~ s/-/_/;
+            print MCF "    default \"$dir/$mcf\" if PLATFORM_$tmpstr\n";
+        }
     }
     close MCF;
 

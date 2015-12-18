@@ -1,0 +1,50 @@
+# constants (forced values)
+
+comment "Choose your bootloader for U-Boot"
+choice
+    prompt "bootloader"
+    default BOOTLOADER_NONE
+    help
+        This menu will let you choose the bootloader to use with your board.
+        If you don't want to build a bootloaders, select "Don't build..."
+
+    config BOOTLOADER_RTX_GIT
+        bool "u-boot from retronix git server"
+    config U_BOOT_DIR_BUILD
+        bool "u-boot local directory build"
+    config BOOTLOADER_NONE
+        bool "Don't build the bootloader"
+endchoice 
+
+config PKG_U_BOOT_PATH_PRECONFIG
+    depends on U_BOOT_DIR_BUILD
+    string "Enter your U-Boot source directory"
+    default "/usr/src/u-boot"
+    help
+       If you are building the "Das U-Boot" boot-loader using a local source
+       tree, specify the absolute path to the tree here.
+
+config PKG_U_BOOT_LEAVESRC
+    depends ! BOOTLOADER_NONE
+    bool "Leave the sources after building"
+    default y
+    help
+        This option leaves the build source tree in rpm/BUILD in place
+
+config PKG_U_BOOT
+    string
+    default "u-boot-rtx-git" if BOOTLOADER_RTX_GIT
+    default "u-boot-dir-build" if U_BOOT_DIR_BUILD
+    default "" if BOOTLOADER_NONE
+
+config PKG_U_BOOT_CONFIG_TYPE
+    string
+    default "rtx_q7_mx6q_defconfig" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_Q7 )
+    default "rtx_a6_mx6q_defconfig" if (PLATFORM = "imx6q" && BOARD_MX6Q_RTX_A6 )
+
+#    default "mx6dl_q7_config" if (PLATFORM = "imx6d" && BOARD_MX6D_RTX_Q7 )
+#    default "mx6dl_a6_config" if (PLATFORM = "imx6d" && BOARD_MX6D_RTX_A6 )
+
+config PKG_U_BOOT_BUILD_ARGS
+    string
+    default ""
